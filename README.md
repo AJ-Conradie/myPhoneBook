@@ -1,9 +1,29 @@
-# ABSA Assessment Application : Phonebook
+# POC / Assessment Application : Phonebook
+## Developed on Windows 10, with Visual Studio Code and Visual Studio 2017 as a POC / Assessment
+
+Not in production ready mode - needs some TLC in that regards - like logging and exception handling
 
 ## Project setup
 
-Frontend - development 
+Initial - Make folder and get code
+
 ```
+cd\
+md github.com
+cd github.com
+md aj-conradie
+cd aj-conradie
+git clone https://github.com/AJ-Conradie/myPhoneBook.git
+cd myphonebook
+npm install
+```
+
+### Frontend
+Vue - development 
+
+
+```
+cd\github.com\aj-conradie\myphonebook
 npm install
 ```
 
@@ -12,12 +32,37 @@ npm install
 npm run serve
 ```
 
-Backend
+### Make production ready - distribution in `myphonebook\dist` folder
+```
+npm run build
+```
+
+Local will be listening on :  http://localhost:8080/
+
+### Backend
+
+Visual Studio 2017 was used for this
 
 - Azure Functions
 - Azure Queue
 - Azure Table Storage
 
+```
+BEFORE starting local dev
+make sure Storage Emulator up and running and all Azure stuff installed
+check queues - there must be a 'newentryqueue'
+check table storage - there must be a 'PhoneBook'
+
+not sure about case - so please KEEP CASE
+```
+
+```
+goto folder : github.com\aj-conradie\myPhoneBook\myPhoneBookAPI
+open file   : myPhoneBookApi.sln
+restore nuget packages
+build
+run
+```
 ## Introduction
 
 Phonebook application
@@ -64,7 +109,7 @@ After load - queries server to get new dataset
 
 Replaces current set with set from server (master set)
 - unsaved entries and entries not successfully saved to server will be lost
-- the way to address this is:
+- the way to address this is: TODO
     - have a "queue" on the client
         - add entry to queue
         - let a queue processor process the entries and report on success/failure
@@ -90,7 +135,7 @@ KNOWN issues and notes:
    3. there is no "pattern" or any validation - GIGO
 2. Duplicate entries
    1. Duplicates are allowed : BUT the current code / expects unique names as a key - and will throw errors in the console
-   2. I don't know what TODO with duplicates .. allow or not allow - so I allowed it 
+   2. I don't know what to do with duplicates .. allow or not allow - so I allowed it 
 3. Other
    1. Vue loads weird - things flash etc - wanted to add splash screen
    2. Add a queue processing mechanism on front end as well
@@ -98,18 +143,21 @@ KNOWN issues and notes:
    
 I did not implement AppInsights - that would be a must to see the performance of the functions etc.
 
-Service bus with multiple subscribers would be better solution if you go enterprise - if you have a global solution
 
-would have implemented slightly different if I had more time
+## Other possible way
 
-Have 2 Phone books - 1 for server, 1 for local. when adding entry choose local vs server - save "local" data also to server as a backup setting / option
+Would have implemented slightly different if I had more time
 
-the server data - stays on server - can be queried - queries must be pageable - meaning:
+Have 2 Phone books - 1 for server, 1 for local. when adding entry it goes to local - local is saved on client as private phonebook - save "local" data also to server as a backup setting / option
+
+The server data stays on server - can be queried - queries must be pageable - meaning:
+server entries only be added by admin or when one choses to save entry on server
 
 When client queries server - server get results and caches it - only a page is sent to the client (limited entries)  - when client scrolls / pages / next - newer pages is retrieved as needed from server - minimal data exchange
 
 if the size of the Phonebook is not THAT huge - keep local version of server on client and use that
 
+When client searches - it searches local and global async
 
 Many many ways ...
 
@@ -119,11 +167,11 @@ I did SOME exception handling ..
 
 I did not implement / deploy solution in AZURE or anywhere - everything was done using local emulators - also why I didn't use Service Bus (no emulator)
 
-When deploying 
-- NB .. make sure CORS enabled
+When deploying - things to keep in mind
+- make sure CORS setup correctly
 - security
 - check queue & NAME !!
-- check table storage and name
+- check table storage and NAME !!
 - check url's
 
 
