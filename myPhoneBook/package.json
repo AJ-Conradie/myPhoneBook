@@ -8,9 +8,12 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "axios": "^0.19.0",
     "core-js": "^2.6.5",
+    "lodash": "^4.17.15",
     "vue": "^2.6.10",
-    "vue-material": "^1.0.0-beta-11"
+    "vue-material": "^1.0.0-beta-11",
+    "vue-the-mask": "^0.11.1"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.11.0",
@@ -22,6 +25,9 @@
     "vue-template-compiler": "^2.6.10"
   },
   "eslintConfig": {
+    "globals": {
+      "_": true
+    },
     "root": true,
     "env": {
       "node": true

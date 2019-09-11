@@ -10,7 +10,6 @@
           v-model="entry.name"
           @focus="clearStatus"
           @keypress="clearStatus" 
-        
           maxlength=20></md-input>
         <span class="md-helper-text">Please enter the name</span>
       </md-field>
@@ -21,7 +20,6 @@
           :class="{ 'has-error': submitting && invalidPhone }"
           v-model="entry.phone"
           @focus="clearStatus" 
-          
           maxlength=20></md-input>
         <span class="md-helper-text">Please enter the phone number</span>
       </md-field>
