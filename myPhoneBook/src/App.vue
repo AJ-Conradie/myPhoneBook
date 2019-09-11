@@ -12,10 +12,17 @@
   </head>
   <body>
     <div id="app" class="small-container">
-      <h2>Phonebook: {{this.phonebook.name}}</h2>
+      <div>
+        <img :src="'/images/reverse-telephone-directory.png'" alt="Phonebook" />
+      </div>
+      <br />
+      <div>
+        <span class="headerName">{{this.phonebook.name}}</span>
+      </div>
       <h3>Phonebook entries: {{this.phonebook.entries.length}}</h3>
+      <hr />
       <div id="phonebook-view">
-        <md-autocomplete v-model="this.phonebook.entries" :md-options="this.phonebook.entries" :value="">
+        <md-autocomplete v-model="this.filteredData" :md-options="this.phonebook.entries">
           <label>Search Phonebook entries</label>
           <span class="md-helper-text">Search is non-case sensitive and "fuzzy"</span>
           <template slot="md-autocomplete-item" slot-scope="{ item, term }">
@@ -28,16 +35,17 @@
             slot-scope="{ term }"
           >No entries matching "{{ term }}" were found.</template>
         </md-autocomplete>
-        <md-field>
+        <hr />
+        <md-field md-clearable>
           <label>Filter Phonebook</label>
-          <md-input v-model="this.searchString" v-on:input="filterList()" />
+          <md-input v-model="this.filterString" maxlength="20" @keyup="filterList()" />
           <span class="md-helper-text">Filter is case-sensitive</span>
         </md-field>
         <hr />
         <p v-if="this.phonebook.entries.length < 1" class="empty-table">No entries</p>
         <md-list v-else class="md-double-line">
-          <md-subheader>Phone Book {{this.filteredData.length}} of {{this.phonebook.entries.length}}</md-subheader>
-          <md-list-item :key="entry.name" v-for="entry in this.filteredData">
+          <md-subheader>Showing {{this.filteredData.length}} of {{this.phonebook.entries.length}}</md-subheader>
+          <md-list-item :key="entry.id" v-for="entry in this.filteredData">
             <md-icon class="md-primary">phone</md-icon>
             <div class="md-list-item-text">
               <span>{{entry.phone}}</span>
@@ -50,19 +58,47 @@
           </md-list-item>
         </md-list>
       </div>
-      <entry-form @add:entry="addEntry" />
-      <div>{{this.message}}</div>
+      <md-button class="md-fab md-fixed md-fab-top-right addentry" @click="showDialog = true">
+        <md-icon>add</md-icon>
+      </md-button>
+      <md-dialog :md-active.sync="showDialog">
+        <md-dialog-title>Settings</md-dialog-title>
+        <md-tabs md-dynamic-height>
+          <md-tab md-label="New">
+            <entry-form @add:entry="addEntry" />
+          </md-tab>
+          <md-tab md-label="Stats">
+            <div class="centered">
+              <h3>TODO</h3>
+            </div>
+          </md-tab>
+        </md-tabs>
+        <md-dialog-actions>
+          <md-button class="md-primary" @click="showDialog = false">Close</md-button>
+        </md-dialog-actions>
+      </md-dialog>
+      <md-snackbar
+        :md-position="position"
+        :md-duration="isInfinity ? Infinity : duration"
+        :md-active.sync="showSnackbar"
+        md-persistent
+        class="snackbar"
+      >
+        <span class="errormessage">{{errormessage}}</span>
+        <div class="snackbar-buttons">
+          <md-button class="md-primary" @click="showSnackbar = false">Dismiss</md-button>
+        </div>
+      </md-snackbar>
     </div>
   </body>
 </html>
 </template>
 
 <script>
-
 import Vue from "vue";
 import VueMaterial from "vue-material";
 import "vue-material/dist/vue-material.min.css";
-import axios from 'axios';
+import axios from "axios";
 
 import EntryForm from "@/components/EntryForm.vue";
 
@@ -76,47 +112,55 @@ export default {
   data() {
     return {
       phonebook: {
+        id: "",
         name: "Local",
         entries: []
       },
       searchString: "",
+      filterString: "",
       filteredData: [],
-      message: ""
+      message: "",
+      errormessage: "",
+      showDialog: false,
+      showSnackbar: false,
+      position: "center",
+      isInfinity: true,
+      retryQueue: [],
+      errorQueue: []
     };
   },
   mounted() {
-    if (localStorage.getItem("phonebook")) {
-      try {
-        this.phonebook = JSON.parse(localStorage.getItem("phonebook"));
-      } catch (e) {
-        localStorage.removeItem("phonebook");
-      }
-    }
+    this.loadLocal();
+    this.loadRetryQueue();
     this.getPhoneBook();
-   },
-  computed: {
   },
+  computed: {},
   methods: {
     async getPhoneBook() {
       var vm = this;
-       axios.get('http://localhost:7071/api/phonebook')
-        .then(function (response) {
+      axios
+        .get("http://localhost:7071/api/phonebook")
+        .then(function(response) {
           const data = response;
+          vm.phonebook.id = data.id;
           vm.phonebook.name = data.name;
           vm.phonebook.entries = data.entries;
           this.filterList();
         })
-        .catch(function (error) {
-          vm.message = 'Error! Could not reach the API. ' + error
-        })
+        .catch(function(error) {
+          vm.displayError("Could not load Phonebook from Server.");
+          vm.message = error;
+        });
     },
     filterList() {
-      this.filteredData = this.phonebook.entries.filter(this.checkName);
+      var vm = this;
+      vm.filteredData = vm.phonebook.entries.filter(vm.checkName);
     },
     async addEntry(entry) {
+      var vm = this;
       try {
-        this.phonebook.entries = [...this.phonebook.entries, entry];
-        this.saveEntries();
+        vm.phonebook.entries = [...vm.phonebook.entries, entry];
+        vm.saveEntries();
         const response = await fetch("http://localhost:7071/api/addentry", {
           method: "POST",
           body: JSON.stringify(entry),
@@ -126,7 +170,8 @@ export default {
         //TODO: do something with reponse - check state etc ..
         // set ui state = success / failure / retry
       } catch (error) {
-        //console.log(error)
+        vm.addEntryToRetryQueue(entry);
+        vm.displayError("Could not save Entry.");
       }
     },
     saveEntries() {
@@ -134,10 +179,46 @@ export default {
       localStorage.setItem("phonebook", parsed);
     },
     checkName(entry) {
-      var s = this.searchString.toLowerCase();
+      var s = this.filterString.toLowerCase();
       if (s == "") return true;
-      var contains = entry.name.toLowerCase().indexOf(s) != -1 || entry.phone.toLowerCase().indexOf(s) != -1;
+      var contains =
+        entry.name.toLowerCase().indexOf(s) != -1 ||
+        entry.phone.toLowerCase().indexOf(s) != -1;
       return contains;
+    },
+    displayError(error) {
+      this.errormessage = error;
+      if (this.showSnackbar == false) this.showSnackbar = true;
+    },
+    addEntryToRetryQueue(entry) {
+      var vm = this;
+      vm.retryQueue = [...vm.retryQueue, entry];
+      const parsed = JSON.stringify(vm.retryQueue);
+      localStorage.setItem("retryqueue", parsed);
+    },
+    async loadLocal() {
+      if (localStorage.getItem("phonebook")) {
+        try {
+          this.phonebook = JSON.parse(localStorage.getItem("phonebook"));
+        } catch (e) {
+          localStorage.removeItem("phonebook");
+        }
+      }
+    },
+    async loadRetryQueue() {
+      if (localStorage.getItem("phonebook")) {
+        try {
+          this.phonebook = JSON.parse(localStorage.getItem("phonebook"));
+        } catch (e) {
+          localStorage.removeItem("phonebook");
+        }
+      }
+    },
+    addToErrorQueue(error) {
+      var vm = this;
+      vm.errorQueue = [...vm.errorQueue, error];
+      const parsed = JSON.stringify(vm.retryQueue);
+      localStorage.setItem("errorqueue", parsed);
     }
   }
 };
@@ -160,7 +241,10 @@ button:focus {
 }
 
 .small-container {
-  margin: 10px 10px 10px 10px;
+  padding-top: 30px;
+  padding-right: 10px;
+  padding-left: 5px;
+  padding-bottom: 30px;
   max-width: 680px;
 }
 button {
@@ -173,5 +257,38 @@ input {
 
 .empty-table {
   text-align: center;
+}
+
+.centered {
+  text-align: center;
+  padding: 10px 10px 10px 10px;
+}
+
+.headerText {
+  font-size: x-large;
+  font-weight: bolder;
+}
+
+.headerName {
+  font-size: x-large;
+  font-weight: bolder;
+  font-style: italic;
+  color: navy;
+}
+
+.snackbar {
+  text-align: center;
+  background-color: whitesmoke;
+}
+.snackbar-buttons {
+  text-align: center;
+  padding: 10px 10px 10px 10px;
+}
+.errormessage {
+  text-align: center;
+}
+
+.addentry .md-ripple {
+  background-color: saddlebrown;
 }
 </style>
